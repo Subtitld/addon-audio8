@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "subtitld-addon-audio8"
+version = "26.11.1"
+description = "Subtitld add-on: offline voice-cloning text-to-speech with Audio8 TTS Preview 0.6B"
+readme = "README.md"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Subtitld", email = "jbopen@gmail.com" }]
+requires-python = ">=3.10"
+
+# ONNX Runtime runs the official ONNX release; the tokenizer, the resampling
+# and the generation loop are the add-on's own (numpy), and the downloads use
+# the standard library. Pinned: the graphs were checked with it.
+dependencies = [
+    "onnxruntime==1.31.0",
+    "numpy>=1.26,<3",  # constraints.txt pins the release build
+]
+
+[project.optional-dependencies]
+build = ["pyinstaller>=6.10"]
+dev = ["pytest>=7.4", "tokenizers>=0.20"]  # tokenizers: only for the parity tests
+
+[project.scripts]
+audio8-addon = "audio8_addon.__main__:main"
+
+[tool.setuptools]
+packages = ["audio8_addon"]
+
+[tool.setuptools.package-data]
+audio8_addon = ["pins.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["model: needs the model (downloads about 1 GB on the first run)"]

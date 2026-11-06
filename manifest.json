@@ -1,0 +1,94 @@
+{
+  "manifest_version": 1,
+  "id": "audio8",
+  "version": "26.11.1",
+  "display_name": "Audio8 TTS (offline, voice clone, 11 languages)",
+  "summary": "Audio8 TTS Preview 0.6B: speaks 11 languages at 44.1 kHz in the speaker's own voice, cloned from a few seconds of the video, including Chinese, Cantonese, Japanese and Korean. The model (1 GB) downloads on the first line and needs about 3 GB of memory. Slow on a CPU: each second of speech takes about two to three seconds to make.",
+  "author": "Subtitld",
+  "homepage": "https://github.com/Subtitld/addon-audio8",
+  "license": "Apache-2.0 (add-on, Audio8 TTS code and weights)",
+  "executable": "bin/audio8-addon",
+  "protocol": 1,
+  "startup_timeout_sec": 30,
+  "platforms": [
+    "linux",
+    "macos",
+    "windows"
+  ],
+  "tasks": [
+    "tts.synthesize"
+  ],
+  "compute": "cpu",
+  "voice_clone": true,
+  "languages": [
+    "zh",
+    "yue",
+    "nl",
+    "en",
+    "fr",
+    "de",
+    "it",
+    "ja",
+    "ko",
+    "pl",
+    "es"
+  ],
+  "voices": [
+    {
+      "id": "audio8-clone",
+      "language": "*",
+      "display_name": "Speaker's own voice (cloned from the video)",
+      "sample_rate": 44100,
+      "requires": [
+        "voice_ref_audio"
+      ]
+    }
+  ],
+  "models": [
+    {
+      "id": "preview-0.6b-int4",
+      "display_name": "Audio8 TTS Preview 0.6B (4-bit ONNX)",
+      "repo": "Edge0/Audio8-TTS-Preview-0.6B-ONNX-INT4",
+      "revision": "818569c6b832118ad68d61bbd873abe250fcd68a",
+      "size_mb": 1015,
+      "license": "Apache-2.0",
+      "bundled": false,
+      "default": true
+    }
+  ],
+  "disk_required_mb": 1200,
+  "ram_required_mb": 3072,
+  "config_schema": {
+    "fields": [
+      {
+        "key": "threads",
+        "type": "int",
+        "label": "CPU threads",
+        "default": 0,
+        "min": 0,
+        "max": 64,
+        "step": 1,
+        "help": "0 picks half the logical processors, at most 8."
+      },
+      {
+        "key": "skip_ref_text",
+        "type": "bool",
+        "label": "Don't send the subtitles of the reference clip",
+        "default": false,
+        "help": "Audio8 clones closest with the exact words of the reference clip, which Subtitld takes from its subtitles. Turn this on if those subtitles paraphrase the speech: the voice is then cloned from the clip's sound alone."
+      },
+      {
+        "key": "voice_ref_audio",
+        "type": "file",
+        "label": "Fallback reference clip",
+        "help": "Cloned by the speaker's own voice when Subtitld has no clip of the speaker to send: 3 to 30 seconds of one person speaking, WAV preferred."
+      },
+      {
+        "key": "voice_ref_text",
+        "type": "string",
+        "label": "What the fallback clip says",
+        "help": "The exact words of the fallback clip. Leave empty to clone from its sound alone."
+      }
+    ]
+  }
+}

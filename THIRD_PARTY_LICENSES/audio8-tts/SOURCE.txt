@@ -1,0 +1,11 @@
+Audio8 TTS (https://github.com/Audio8-AI/Audio8_TTS, Apache-2.0)
+
+The add-on's engine (audio8_addon/engine.py) and text front end
+(audio8_addon/text.py) are ports of upstream's ONNX runtime,
+onnx_runtime/arktts_runtime/{runtime,prompt,registration}.py at commit
+1d64afcc2da56222b41ddcf53de7b8bc54be1fb6, changed for the add-on: a pure-Python
+tokenizer, a cap on a line's length, cached voice registration.
+
+The model weights (Edge0/Audio8-TTS-Preview-0.6B-ONNX-INT4 on Hugging Face,
+Apache-2.0) are not in this archive; they download on the first line.
+LICENSE and NOTICE here are upstream's.

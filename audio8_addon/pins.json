@@ -1,0 +1,63 @@
+{
+ "audio8": {
+  "repo": "Edge0/Audio8-TTS-Preview-0.6B-ONNX-INT4",
+  "revision": "818569c6b832118ad68d61bbd873abe250fcd68a",
+  "files": [
+   {
+    "path": "runtime_manifest.json",
+    "size": 1080,
+    "sha256": "6473ae7d0106a2e369e442c72a71d2d46d8fbd3fe18c80d80b1b46e4aa241930"
+   },
+   {
+    "path": "tokenizer/tokenizer.json",
+    "size": 12217872,
+    "sha256": "f24e08099d45a8adf3f52f5f0b03276e433bb9d689bb15fcbcc48ce58744588b"
+   },
+   {
+    "path": "slow_ar_int4.onnx",
+    "size": 900218,
+    "sha256": "0cf7701d6da81f888b49ba6e752445d9786a9915ba30dcf084f7743bdda96834"
+   },
+   {
+    "path": "slow_ar_int4.onnx.data",
+    "size": 290267090,
+    "sha256": "bb217f654039692204386b7e5b74d98e9268863bb664a849aa123a9053d6c824"
+   },
+   {
+    "path": "fast_ar_int4.onnx",
+    "size": 156318,
+    "sha256": "808c5a0c95c28d90337d925a9a8f6075f7ff8eb7b3080d2b34c4133479a6dc94"
+   },
+   {
+    "path": "fast_ar_int4.onnx.data",
+    "size": 35055104,
+    "sha256": "183be0c9f26b27c605b92a0875beb93f8f98b771f27f65cab133c73610868325"
+   },
+   {
+    "path": "codec_decoder_fp16.onnx",
+    "size": 594319,
+    "sha256": "6e379be31db6c1b0c111e0e3d2aeb10717ee96b197462b926de411e75a1fd019"
+   },
+   {
+    "path": "codec_decoder_fp16.onnx.data",
+    "size": 260741440,
+    "sha256": "18838f686aa7c1528fb69ec11e1ab404fdc4dc823d13219abfd4b327988527c0"
+   },
+   {
+    "path": "registration/registration_manifest.json",
+    "size": 165,
+    "sha256": "36ef9d2f435f0f7b5ab66dc78a44411a24c0ab9e3a2c63738babe575747a584f"
+   },
+   {
+    "path": "registration/codec_encoder_fp16.onnx",
+    "size": 940787,
+    "sha256": "e856d7999442cdc8f1f2ed0d2c055532cf359f0dd6d9a44fd4b98584c5d5dfa5"
+   },
+   {
+    "path": "registration/codec_encoder_fp16.onnx.data",
+    "size": 414425088,
+    "sha256": "19c740fcc4d45aa2546e9ab86e31c6200955c4b0a139758296fbf1064bf009cd"
+   }
+  ]
+ }
+}

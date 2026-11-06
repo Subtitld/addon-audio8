@@ -1,0 +1,328 @@
+name: Release
+
+# Copyright 2026 Subtitld contributors
+# SPDX-License-Identifier: Apache-2.0
+#
+# test -> build (one per platform, needs: test) -> release (tags only).
+#
+# A handshake proves little: numpy and ONNX Runtime are only imported at the
+# first line. So every platform's FROZEN add-on is unpacked from its release
+# zip the way Subtitld installs it, downloads the model (about 1 GB) and
+# clones and cancels through the protocol with nothing but what is
+# inside its own bundle, before anything is published.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      targets:
+        description: 'Platforms to build, comma-separated (linux-x86_64, macos-arm64, windows-x86_64); empty for all. Tag pushes always build all.'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+env:
+  PYTHON_VERSION: '3.12'
+
+jobs:
+  test:
+    name: Tests
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -c constraints.txt -e '.[dev]'
+
+      - name: Test suite (includes real synthesis, with the models downloaded)
+        run: pytest -q -rs --ignore=tests/test_installed.py --junitxml=report.xml
+
+      - name: Refuse skipped tests
+        run: |
+          python - <<'PY'
+          import sys, xml.etree.ElementTree as ET
+          root = ET.parse('report.xml').getroot()
+          suites = [root] if root.tag == 'testsuite' else list(root)
+          skipped = sum(int(s.get('skipped', 0)) for s in suites)
+          tests = sum(int(s.get('tests', 0)) for s in suites)
+          print(f'{tests} tests, {skipped} skipped')
+          if skipped:
+              sys.exit('FATAL: tests were skipped; the release would ship partly untested')
+          PY
+
+  # The platforms to build. A manual run can build only some, to try a
+  # platform that cannot be built locally without paying for the others.
+  plan:
+    name: Plan
+    runs-on: ubuntu-22.04
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - id: plan
+        env:
+          TARGETS: ${{ github.event_name == 'workflow_dispatch' && inputs.targets || '' }}
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json, os
+          platforms = [
+              {'os': 'ubuntu-22.04', 'platform_label': 'linux-x86_64', 'exe_suffix': ''},
+              # The catalog cannot tell Mac architectures apart: ship arm64, as
+              # the other add-ons do.
+              {'os': 'macos-14', 'platform_label': 'macos-arm64', 'exe_suffix': ''},
+              {'os': 'windows-2022', 'platform_label': 'windows-x86_64', 'exe_suffix': '.exe'},
+          ]
+          wanted = {t.strip() for t in os.environ['TARGETS'].split(',') if t.strip()}
+          unknown = wanted - {p['platform_label'] for p in platforms}
+          if unknown:
+              raise SystemExit(f'unknown targets: {sorted(unknown)}')
+          chosen = [p for p in platforms if not wanted or p['platform_label'] in wanted]
+          print('matrix=' + json.dumps({'include': chosen}))
+          PY
+
+  build:
+    name: Build ${{ matrix.platform_label }}
+    needs: [test, plan]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install build deps
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -c constraints.txt -e '.[build,dev]'
+          python -c "from importlib.metadata import version as v; import platform; print('python', platform.python_version(), '| onnxruntime', v('onnxruntime'), '| numpy', v('numpy'), '| pyinstaller', v('pyinstaller'))"
+
+      - name: Build bundle
+        shell: bash
+        run: pyinstaller pyinstaller.spec --noconfirm --log-level WARN
+
+      - name: Self-test the bundle
+        shell: bash
+        run: dist/audio8-addon/audio8-addon${{ matrix.exe_suffix }} --self-test
+
+      - name: Stage archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(python -c "import json; print(json.load(open('manifest.json'))['version'])")
+          mkdir -p release-staging/bin
+          cp -R dist/audio8-addon/. release-staging/bin/
+          cp LICENSE README.md release-staging/
+          # Fails when a native file in the bundle has no notice, and lists the
+          # LGPL libraries whose source must go next to the archive.
+          python tools/collect_licences.py --bundle dist/audio8-addon \
+            --out release-staging/THIRD_PARTY_LICENSES --needs-source sources.txt
+          while read -r source; do
+            case "$source" in
+              libquadmath)
+                python tools/build_libquadmath_source.py --check-bundle dist/audio8-addon
+                python tools/build_libquadmath_source.py --out "audio8-${version}-libquadmath-source.tar.gz"
+                echo "SOURCE_FILES=audio8-${version}-libquadmath-source.tar.gz" >> "$GITHUB_ENV" ;;
+              *) echo "FATAL: no way to build the source of $source"; exit 1 ;;
+            esac
+          done < sources.txt
+          # The host resolves `executable` verbatim (manifest dir / path) and
+          # never appends `.exe`, so the Windows archive names the real file.
+          python - "${{ matrix.exe_suffix }}" <<'PY'
+          import json, sys
+          suffix = sys.argv[1]
+          manifest = json.load(open('manifest.json', encoding='utf-8'))
+          manifest['executable'] += suffix
+          with open('release-staging/manifest.json', 'w', encoding='utf-8') as f:
+              json.dump(manifest, f, indent=2, ensure_ascii=False)
+              f.write('\n')
+          print('executable:', manifest['executable'])
+          PY
+          test -f "release-staging/bin/audio8-addon${{ matrix.exe_suffix }}"
+          archive="audio8-${version}-${{ matrix.platform_label }}.zip"
+          python tools/make_archive.py release-staging "$archive"
+          echo "ARCHIVE_NAME=$archive" >> "$GITHUB_ENV"
+
+      - name: Report sizes
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os, sys
+          def tree_size(path):
+              total = 0
+              for d, _, files in os.walk(path):
+                  for f in files:
+                      p = os.path.join(d, f)
+                      if not os.path.islink(p):
+                          total += os.path.getsize(p)
+              return total
+          onedir = tree_size('dist/audio8-addon')
+          archive = os.path.getsize(os.environ['ARCHIVE_NAME'])
+          line = (f"{os.environ['ARCHIVE_NAME']}: onedir {onedir / 2**20:.0f} MiB, "
+                  f"archive {archive / 2**20:.0f} MiB")
+          print(line)
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as f:
+              f.write(line + '\n')
+          if archive >= 2 * 2**30:
+              sys.exit('FATAL: the archive exceeds the 2 GiB GitHub release asset limit')
+          PY
+
+      # Exactly what Subtitld's installer does: ZipFile.extractall (no
+      # symlinks, no permission bits), then chmod +x on the executable only.
+      - name: Install the archive like the host
+        shell: bash
+        run: |
+          python - "${{ runner.temp }}/installed" <<'PY'
+          import json, os, sys, zipfile
+          dest = sys.argv[1]
+          with zipfile.ZipFile(os.environ['ARCHIVE_NAME']) as zf:
+              zf.extractall(dest)
+              exe = os.path.join(dest, json.loads(zf.read('manifest.json'))['executable'])
+          os.chmod(exe, os.stat(exe).st_mode | 0o111)
+          print('installed', exe)
+          PY
+
+      - name: Prove the installed binary
+        shell: bash
+        env:
+          # Absolute: Popen resolves a relative executable against the current
+          # directory, not the cwd= it is handed.
+          SUBTITLD_MODELS_DIR: ${{ runner.temp }}/models
+          AUDIO8_TEST_BINARY: ${{ runner.temp }}/installed/bin/audio8-addon${{ matrix.exe_suffix }}
+        run: |
+          set -euo pipefail
+          pytest -v -rs tests/test_installed.py --junitxml=frozen-report.xml
+          python - <<'PY'
+          import sys, xml.etree.ElementTree as ET
+          root = ET.parse('frozen-report.xml').getroot()
+          suites = [root] if root.tag == 'testsuite' else list(root)
+          skipped = sum(int(s.get('skipped', 0)) for s in suites)
+          tests = sum(int(s.get('tests', 0)) for s in suites)
+          if skipped or not tests:
+              sys.exit(f'FATAL: {tests} installed-binary tests, {skipped} skipped')
+          PY
+
+      - name: Assert the archive is complete
+        shell: bash
+        env:
+          EXE_SUFFIX: ${{ matrix.exe_suffix }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os, sys, zipfile
+          name = os.environ['ARCHIVE_NAME']
+          suffix = os.environ['EXE_SUFFIX']
+          zf = zipfile.ZipFile(name)
+          names = set(zf.namelist())
+          manifest = json.loads(zf.read('manifest.json'))
+          repo_manifest = json.load(open('manifest.json', encoding='utf-8'))
+          problems = []
+          if manifest['version'] != repo_manifest['version']:
+              problems.append('manifest version mismatch')
+          if manifest['executable'] != f'bin/audio8-addon{suffix}':
+              problems.append(f"executable is {manifest['executable']!r}")
+          required = ['manifest.json', 'LICENSE', 'README.md', manifest['executable'],
+                      'THIRD_PARTY_LICENSES/README.md', 'THIRD_PARTY_LICENSES/python/LICENSE.txt',
+                      'THIRD_PARTY_LICENSES/pyinstaller/COPYING.txt']
+          required.append('THIRD_PARTY_LICENSES/onnxruntime/ThirdPartyNotices.txt')
+          for dist in ('onnxruntime', 'numpy'):
+              if not any(n.startswith(f'THIRD_PARTY_LICENSES/{dist}/') for n in names):
+                  problems.append(f'no licence for {dist}')
+          required += ['bin/_internal/audio8_addon/pins.json', 'THIRD_PARTY_LICENSES/audio8-tts/NOTICE']
+          problems += [f'missing {r}' for r in required if r not in names]
+          if any(n.endswith(('.onnx', '.onnx.data')) for n in names):
+              problems.append('the model must not be bundled')
+          if problems:
+              sys.exit('FATAL: ' + '; '.join(problems))
+          print(f'{name}: {len(names)} entries, all required files present')
+          PY
+
+      - name: Checksum
+        shell: bash
+        run: |
+          python -c "import hashlib,os;p=os.environ['ARCHIVE_NAME'];print(hashlib.sha256(open(p,'rb').read()).hexdigest())" > "${ARCHIVE_NAME}.sha256"
+          cat "${ARCHIVE_NAME}.sha256"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform_label }}
+          path: |
+            ${{ env.ARCHIVE_NAME }}
+            ${{ env.ARCHIVE_NAME }}.sha256
+            ${{ env.SOURCE_FILES }}
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artefacts
+      - name: Flatten
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(python3 -c "import json; print(json.load(open('manifest.json'))['version'])")
+          if [ "${GITHUB_REF_NAME#v}" != "$version" ]; then
+            echo "FATAL: tag ${GITHUB_REF_NAME} does not match manifest version ${version}"
+            exit 1
+          fi
+          mkdir -p release-files
+          find artefacts -type f -name 'audio8-*' -print -exec cp {} release-files/ \;
+          ls -lah release-files
+          # Every advertised platform must be present, each with its sidecar,
+          # or the catalog refuses the release.
+          for label in linux-x86_64 macos-arm64 windows-x86_64; do
+            test -f "release-files/audio8-${version}-${label}.zip"
+            test -f "release-files/audio8-${version}-${label}.zip.sha256"
+          done
+          # LGPL-2.1 section 4: the source goes next to the Linux archive.
+          test -f "release-files/audio8-${version}-libquadmath-source.tar.gz"
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: release-files/*
+          fail_on_unmatched_files: true
+          generate_release_notes: true
+          body: |
+            Voice-cloning text-to-speech for Subtitld with Audio8 TTS Preview 0.6B: 11 languages
+            (Chinese, Cantonese, Dutch, English, French, German, Italian, Japanese, Korean,
+            Polish, Spanish) at 44.1 kHz, in the speaker's own voice cloned from the video.
+
+            The archive holds the add-on and ONNX Runtime. The model (1 GB, the official INT4
+            ONNX release) downloads on the first line, at a pinned revision, checked by sha256.
+            It runs on the CPU at about 0.4 to 0.5 times real time and needs about 3 GB of memory.
+
+            The add-on, Audio8 TTS's code and its weights are Apache-2.0. Each archive carries
+            `THIRD_PARTY_LICENSES/` with the licence of everything frozen into it, and upstream's
+            NOTICE. The Linux archive carries libquadmath (LGPL-2.1, with numpy); its complete
+            source is `audio8-<version>-libquadmath-source.tar.gz` in this release.
+
+      # The catalog also rebuilds every six hours; this only makes it immediate.
+      - name: Trigger catalog rebuild
+        env:
+          GH_TOKEN: ${{ secrets.SUBTITLD_BOT_TOKEN }}
+        run: |
+          if [ -z "${GH_TOKEN}" ]; then
+            echo "::notice::SUBTITLD_BOT_TOKEN is not set; the catalog picks this release up on its next scheduled rebuild."
+            exit 0
+          fi
+          gh api repos/Subtitld/addons-catalog/dispatches -f event_type=catalog-rebuild

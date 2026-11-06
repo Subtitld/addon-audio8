@@ -1,0 +1,11 @@
+.spike/
+__pycache__/
+*.pyc
+build/
+dist/
+dist-*/
+*.egg-info/
+.pytest_cache/
+audio8-*.zip*
+audio8-*.tar.gz*
+release-staging/
