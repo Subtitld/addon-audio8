@@ -43,7 +43,7 @@ LINES = [
 
 @pytest.fixture(scope='module')
 def tokenizer_path():
-    pins = [p for p in addon.pins() if p['path'] == 'tokenizer/tokenizer.json']
+    pins = [p for p in addon.pins('shared') if p['path'] == 'tokenizer/tokenizer.json']
     download.ensure(pins, lambda *_: None, lambda: False)
     return download.local_path(pins[0])
 

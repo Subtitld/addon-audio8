@@ -6,6 +6,9 @@ onnx_runtime/arktts_runtime/{runtime,prompt,registration}.py at commit
 1d64afcc2da56222b41ddcf53de7b8bc54be1fb6, changed for the add-on: a pure-Python
 tokenizer, a cap on a line's length, cached voice registration.
 
-The model weights (Edge0/Audio8-TTS-Preview-0.6B-ONNX-INT4 on Hugging Face,
-Apache-2.0) are not in this archive; they download on the first line.
+The model weights are not in this archive; they download on the first line,
+all Apache-2.0: the codec, the tokenizer and Preview 0.6B from
+Edge0/Audio8-TTS-Preview-0.6B-ONNX-INT4, and Realistic 0.6B from
+stephvax/audio8-tts-realistic-0.6b-onnx-int4, an independent ONNX export of
+Edge0/Audio8-TTS-Realistic-0.6b, on Hugging Face.
 LICENSE and NOTICE here are upstream's.

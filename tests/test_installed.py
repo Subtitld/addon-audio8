@@ -80,7 +80,7 @@ def test_self_test_loads_onnx_runtime():
     out = subprocess.run([BINARY, '--self-test'], capture_output=True, text=True, timeout=300)
     assert out.returncode == 0, out.stderr[-2000:]
     report = json.loads(out.stdout.strip().splitlines()[-1])
-    assert report['ok'] is True and report['pins'] == 11
+    assert report['ok'] is True and report['pins'] == {'realistic-0.6b-int4': 11, 'preview-0.6b-int4': 11}
 
 
 def test_clones_a_clip_then_cancels(tmp_path):

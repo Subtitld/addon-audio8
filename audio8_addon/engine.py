@@ -1,13 +1,16 @@
-"""Audio8 TTS Preview 0.6B on ONNX Runtime: register a voice, speak a line.
+"""Audio8 TTS 0.6B on ONNX Runtime: register a voice, speak a line.
 
 Copyright 2026 Subtitld contributors
 SPDX-License-Identifier: Apache-2.0
 
 The graphs
 ----------
-Audio8's official ONNX release (Apache-2.0) splits the model in four graphs;
-the loop between them is a port of upstream's onnx_runtime/arktts_runtime
-(runtime.py and registration.py, Apache-2.0):
+Audio8's official ONNX release of Preview 0.6B (Apache-2.0) splits the model
+in four graphs, and the export of Realistic 0.6B the add-on also offers has
+the same four, the same layout and the same inputs and outputs (its codec
+and tokenizer are Preview's files). The loop between them is a port of
+upstream's onnx_runtime/arktts_runtime (runtime.py and registration.py,
+Apache-2.0):
 
 - codec_encoder (FP16, 414 MB): a 44.1 kHz reference clip → its codec codes,
   10 codebooks at 21.5 frames a second. Only loaded to register a clip; the

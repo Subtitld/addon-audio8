@@ -19,7 +19,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
-from audio8_addon import __main__ as addon, audio, download, engine  # noqa: E402
+from audio8_addon import __main__ as addon, audio, download, engine, voices  # noqa: E402
 
 pytestmark = pytest.mark.model
 
@@ -28,10 +28,11 @@ TRANSCRIPT = ('When one listens, by the side of honest men at the portals of soc
               'one overhears the dialogues of those who are on the outside.')
 
 
-@pytest.fixture(scope='module')
-def model(tmp_path_factory):
-    download.ensure(addon.pins(), lambda *_: None, lambda: False)
-    return engine.Audio8(addon.model_files(), engine.default_threads(), tmp_path_factory.mktemp('voices'))
+@pytest.fixture(scope='module', params=list(voices.MODEL_LANGUAGES))
+def model(request, tmp_path_factory):
+    model = request.param
+    download.ensure(addon.pins(model), lambda *_: None, lambda: False)
+    return engine.Audio8(addon.model_files(model), engine.default_threads(), tmp_path_factory.mktemp('voices'))
 
 
 @pytest.fixture(scope='module')

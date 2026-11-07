@@ -1,9 +1,9 @@
 {
   "manifest_version": 1,
   "id": "audio8",
-  "version": "26.11.1",
-  "display_name": "Audio8 TTS (offline, voice clone, 11 languages)",
-  "summary": "Audio8 TTS Preview 0.6B: speaks 11 languages at 44.1 kHz in the speaker's own voice, cloned from a few seconds of the video, including Chinese, Cantonese, Japanese and Korean. The model (1 GB) downloads on the first line and needs about 3 GB of memory. Slow on a CPU: each second of speech takes about two to three seconds to make.",
+  "version": "26.11.2",
+  "display_name": "Audio8 TTS (offline, voice clone, 23 languages)",
+  "summary": "Audio8 TTS Realistic 0.6B: speaks 23 languages at 44.1 kHz in the speaker's own voice, cloned from a few seconds of the video, from Arabic, Hindi and Thai to Chinese, Cantonese, Japanese and Korean. The earlier Preview model, in 11 languages, can be picked in Configure. The model (1 GB) downloads on the first line and needs about 3 GB of memory. Slow on a CPU: each second of speech takes about two to three seconds to make.",
   "author": "Subtitld",
   "homepage": "https://github.com/Subtitld/addon-audio8",
   "license": "Apache-2.0 (add-on, Audio8 TTS code and weights)",
@@ -21,17 +21,29 @@
   "compute": "cpu",
   "voice_clone": true,
   "languages": [
-    "zh",
+    "ar",
     "yue",
+    "zh",
     "nl",
     "en",
+    "fi",
     "fr",
     "de",
+    "hi",
+    "id",
     "it",
     "ja",
     "ko",
+    "ms",
+    "no",
     "pl",
-    "es"
+    "pt",
+    "ru",
+    "es",
+    "sv",
+    "th",
+    "tr",
+    "vi"
   ],
   "voices": [
     {
@@ -46,6 +58,16 @@
   ],
   "models": [
     {
+      "id": "realistic-0.6b-int4",
+      "display_name": "Audio8 TTS Realistic 0.6B (4-bit ONNX)",
+      "repo": "stephvax/audio8-tts-realistic-0.6b-onnx-int4",
+      "revision": "04313606782af6b9a1aa93724555bc7b64ba9197",
+      "size_mb": 1015,
+      "license": "Apache-2.0",
+      "bundled": false,
+      "default": true
+    },
+    {
       "id": "preview-0.6b-int4",
       "display_name": "Audio8 TTS Preview 0.6B (4-bit ONNX)",
       "repo": "Edge0/Audio8-TTS-Preview-0.6B-ONNX-INT4",
@@ -53,13 +75,30 @@
       "size_mb": 1015,
       "license": "Apache-2.0",
       "bundled": false,
-      "default": true
+      "default": false
     }
   ],
-  "disk_required_mb": 1200,
+  "disk_required_mb": 1500,
   "ram_required_mb": 3072,
   "config_schema": {
     "fields": [
+      {
+        "key": "model",
+        "type": "select",
+        "label": "Model",
+        "default": "realistic-0.6b-int4",
+        "options": [
+          {
+            "value": "realistic-0.6b-int4",
+            "label": "Realistic: 23 languages, more natural delivery"
+          },
+          {
+            "value": "preview-0.6b-int4",
+            "label": "Preview: the earlier model, 11 languages"
+          }
+        ],
+        "help": "Both are 0.6B and equally fast, and clone the same way. Lines in a language Preview doesn't speak use Realistic. Only one model is in memory at a time; switching downloads the other's 330 MB the first time."
+      },
       {
         "key": "threads",
         "type": "int",

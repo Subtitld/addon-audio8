@@ -13,16 +13,36 @@ from __future__ import annotations
 CLONE = 'audio8-clone'
 SAMPLE_RATE = 44100
 
-# Upstream's eleven recommended languages. The model takes no language tag:
-# this list only says which lines to accept.
+# The languages each model speaks, from its model card. The model takes no
+# language tag: these lists only say which lines to accept, and which model a
+# line needs.
 LANGUAGE_NAMES = {
-    'zh': 'Chinese', 'yue': 'Cantonese', 'nl': 'Dutch', 'en': 'English', 'fr': 'French',
-    'de': 'German', 'it': 'Italian', 'ja': 'Japanese', 'ko': 'Korean', 'pl': 'Polish',
-    'es': 'Spanish',
+    'ar': 'Arabic', 'yue': 'Cantonese', 'zh': 'Chinese', 'nl': 'Dutch', 'en': 'English',
+    'fi': 'Finnish', 'fr': 'French', 'de': 'German', 'hi': 'Hindi', 'id': 'Indonesian',
+    'it': 'Italian', 'ja': 'Japanese', 'ko': 'Korean', 'ms': 'Malay', 'no': 'Norwegian',
+    'pl': 'Polish', 'pt': 'Portuguese', 'ru': 'Russian', 'es': 'Spanish', 'sv': 'Swedish',
+    'th': 'Thai', 'tr': 'Turkish', 'vi': 'Vietnamese',
 }
-LANGUAGES = tuple(LANGUAGE_NAMES)
+REALISTIC = 'realistic-0.6b-int4'
+PREVIEW = 'preview-0.6b-int4'
+MODEL_LANGUAGES = {
+    REALISTIC: tuple(LANGUAGE_NAMES),
+    PREVIEW: ('yue', 'zh', 'nl', 'en', 'fr', 'de', 'it', 'ja', 'ko', 'pl', 'es'),
+}
+LANGUAGES = MODEL_LANGUAGES[REALISTIC]
 # Tags Subtitld or a user may send for a language under another code.
-ALIASES = {'cmn': 'zh', 'zho': 'zh', 'chi': 'zh', 'jpn': 'ja', 'kor': 'ko', 'nld': 'nl', 'dut': 'nl'}
+ALIASES = {
+    'cmn': 'zh', 'zho': 'zh', 'chi': 'zh', 'jpn': 'ja', 'kor': 'ko', 'nld': 'nl', 'dut': 'nl',
+    'ara': 'ar', 'fin': 'fi', 'hin': 'hi', 'ind': 'id', 'in': 'id', 'msa': 'ms', 'may': 'ms',
+    'zsm': 'ms', 'nor': 'no', 'nb': 'no', 'nob': 'no', 'nn': 'no', 'nno': 'no', 'por': 'pt',
+    'rus': 'ru', 'swe': 'sv', 'tha': 'th', 'tur': 'tr', 'vie': 'vi', 'eng': 'en', 'fra': 'fr',
+    'fre': 'fr', 'deu': 'de', 'ger': 'de', 'ita': 'it', 'pol': 'pl', 'spa': 'es',
+}
+
+
+def model_for(language: str, chosen: str) -> str:
+    """The model that speaks `language`: the chosen one if it can, else Realistic."""
+    return chosen if language in MODEL_LANGUAGES.get(chosen, ()) else REALISTIC
 
 
 def manifest_voices() -> list[dict]:

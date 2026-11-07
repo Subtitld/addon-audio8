@@ -303,13 +303,18 @@ jobs:
           fail_on_unmatched_files: true
           generate_release_notes: true
           body: |
-            Voice-cloning text-to-speech for Subtitld with Audio8 TTS Preview 0.6B: 11 languages
-            (Chinese, Cantonese, Dutch, English, French, German, Italian, Japanese, Korean,
-            Polish, Spanish) at 44.1 kHz, in the speaker's own voice cloned from the video.
+            Voice-cloning text-to-speech for Subtitld with Audio8 TTS at 44.1 kHz, in the speaker's
+            own voice cloned from the video. Realistic 0.6B, the default, speaks 23 languages (Arabic,
+            Cantonese, Chinese, Dutch, English, Finnish, French, German, Hindi, Indonesian, Italian,
+            Japanese, Korean, Malay, Norwegian, Polish, Portuguese, Russian, Spanish, Swedish, Thai,
+            Turkish, Vietnamese); the earlier Preview 0.6B, in 11, can be picked in Configure.
 
-            The archive holds the add-on and ONNX Runtime. The model (1 GB, the official INT4
-            ONNX release) downloads on the first line, at a pinned revision, checked by sha256.
-            It runs on the CPU at about 0.4 to 0.5 times real time and needs about 3 GB of memory.
+            The archive holds the add-on and ONNX Runtime. The model (1 GB) downloads on the first
+            line, at pinned revisions, checked by sha256: the codec and tokenizer from Edge0's official
+            Preview ONNX release, and Realistic's two transformers from an independent INT4 export
+            (stephvax/audio8-tts-realistic-0.6b-onnx-int4, checked against Realistic's checkpoint with
+            tools/verify_export.py). It runs on the CPU at about 0.5 times real time and needs about
+            3 GB of memory.
 
             The add-on, Audio8 TTS's code and its weights are Apache-2.0. Each archive carries
             `THIRD_PARTY_LICENSES/` with the licence of everything frozen into it, and upstream's

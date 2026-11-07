@@ -1,5 +1,36 @@
 {
- "audio8": {
+ "shared": {
+  "repo": "Edge0/Audio8-TTS-Preview-0.6B-ONNX-INT4",
+  "revision": "818569c6b832118ad68d61bbd873abe250fcd68a",
+  "files": [
+   {
+    "path": "tokenizer/tokenizer.json",
+    "size": 12217872,
+    "sha256": "f24e08099d45a8adf3f52f5f0b03276e433bb9d689bb15fcbcc48ce58744588b"
+   },
+   {
+    "path": "codec_decoder_fp16.onnx",
+    "size": 594319,
+    "sha256": "6e379be31db6c1b0c111e0e3d2aeb10717ee96b197462b926de411e75a1fd019"
+   },
+   {
+    "path": "codec_decoder_fp16.onnx.data",
+    "size": 260741440,
+    "sha256": "18838f686aa7c1528fb69ec11e1ab404fdc4dc823d13219abfd4b327988527c0"
+   },
+   {
+    "path": "registration/codec_encoder_fp16.onnx",
+    "size": 940787,
+    "sha256": "e856d7999442cdc8f1f2ed0d2c055532cf359f0dd6d9a44fd4b98584c5d5dfa5"
+   },
+   {
+    "path": "registration/codec_encoder_fp16.onnx.data",
+    "size": 414425088,
+    "sha256": "19c740fcc4d45aa2546e9ab86e31c6200955c4b0a139758296fbf1064bf009cd"
+   }
+  ]
+ },
+ "preview-0.6b-int4": {
   "repo": "Edge0/Audio8-TTS-Preview-0.6B-ONNX-INT4",
   "revision": "818569c6b832118ad68d61bbd873abe250fcd68a",
   "files": [
@@ -9,9 +40,9 @@
     "sha256": "6473ae7d0106a2e369e442c72a71d2d46d8fbd3fe18c80d80b1b46e4aa241930"
    },
    {
-    "path": "tokenizer/tokenizer.json",
-    "size": 12217872,
-    "sha256": "f24e08099d45a8adf3f52f5f0b03276e433bb9d689bb15fcbcc48ce58744588b"
+    "path": "registration/registration_manifest.json",
+    "size": 165,
+    "sha256": "36ef9d2f435f0f7b5ab66dc78a44411a24c0ab9e3a2c63738babe575747a584f"
    },
    {
     "path": "slow_ar_int4.onnx",
@@ -32,31 +63,42 @@
     "path": "fast_ar_int4.onnx.data",
     "size": 35055104,
     "sha256": "183be0c9f26b27c605b92a0875beb93f8f98b771f27f65cab133c73610868325"
-   },
+   }
+  ]
+ },
+ "realistic-0.6b-int4": {
+  "repo": "stephvax/audio8-tts-realistic-0.6b-onnx-int4",
+  "revision": "04313606782af6b9a1aa93724555bc7b64ba9197",
+  "files": [
    {
-    "path": "codec_decoder_fp16.onnx",
-    "size": 594319,
-    "sha256": "6e379be31db6c1b0c111e0e3d2aeb10717ee96b197462b926de411e75a1fd019"
-   },
-   {
-    "path": "codec_decoder_fp16.onnx.data",
-    "size": 260741440,
-    "sha256": "18838f686aa7c1528fb69ec11e1ab404fdc4dc823d13219abfd4b327988527c0"
+    "path": "runtime_manifest.json",
+    "size": 1080,
+    "sha256": "182da307714a61f2014cf5fe42c9be005d30c5e41006daa30fed2a874b332019"
    },
    {
     "path": "registration/registration_manifest.json",
     "size": 165,
-    "sha256": "36ef9d2f435f0f7b5ab66dc78a44411a24c0ab9e3a2c63738babe575747a584f"
+    "sha256": "bff85a162ed6d2570ccb6b8c7d1f9126c1f2f1c0b0464c00ecfef0e0a06d894a"
    },
    {
-    "path": "registration/codec_encoder_fp16.onnx",
-    "size": 940787,
-    "sha256": "e856d7999442cdc8f1f2ed0d2c055532cf359f0dd6d9a44fd4b98584c5d5dfa5"
+    "path": "slow_ar_int4.onnx",
+    "size": 900212,
+    "sha256": "eb0d4925019ce6d83e19e56a4bc73d62e64eec0c1c825a51c9b56871d5f10f70"
    },
    {
-    "path": "registration/codec_encoder_fp16.onnx.data",
-    "size": 414425088,
-    "sha256": "19c740fcc4d45aa2546e9ab86e31c6200955c4b0a139758296fbf1064bf009cd"
+    "path": "slow_ar_int4.onnx.data",
+    "size": 290267090,
+    "sha256": "27fe1e3d74e4a660f02bdf4c3a922f522a26c99ca9c1f78b268eed43f5fd6501"
+   },
+   {
+    "path": "fast_ar_int4.onnx",
+    "size": 156285,
+    "sha256": "41cfbf981e80f0f9c178f5439fd07d36090c8783280c6a82d9df868296aa09fd"
+   },
+   {
+    "path": "fast_ar_int4.onnx.data",
+    "size": 35055104,
+    "sha256": "054dc7c25d297ada0e6753f45e90fca5068f989528f33db6ec63c1085050af49"
    }
   ]
  }

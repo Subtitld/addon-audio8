@@ -12,11 +12,13 @@ KIND, either express or implied.
 
 What this add-on is
 -------------------
-Offline voice-cloning text-to-speech with Audio8 TTS Preview 0.6B
-(Apache-2.0), at 44.1 kHz, in eleven languages. Serves `tts.synthesize`.
-ONNX Runtime runs the official INT4 ONNX release on the CPU (engine.py); the
-model downloads on the first line (download.py), and after that nothing
-leaves the machine.
+Offline voice-cloning text-to-speech with Audio8 TTS (Apache-2.0), at
+44.1 kHz. Two models of the same size and design: Realistic 0.6B (the
+default), in 23 languages, and the earlier Preview 0.6B, in eleven. Serves
+`tts.synthesize`. ONNX Runtime runs 4-bit ONNX builds on the CPU (engine.py):
+Edge0's official one of Preview, and an independent export of Realistic in
+the same layout (see tools/pin_model.py). The model downloads on the first
+line (download.py), and after that nothing leaves the machine.
 
 Wire format
 -----------
@@ -25,7 +27,9 @@ the host prefixes with `[addon:audio8]` and surfaces.
 
 Options (the host sets them from Configure as AUDIO8_<KEY>)
 -------------------------------------------------------------
-threads: CPU threads, 0 for automatic; voice_ref_audio and voice_ref_text: a
+model: realistic-0.6b-int4 or preview-0.6b-int4; a line in a language
+Preview does not speak uses Realistic. threads: CPU threads, 0 for
+automatic; voice_ref_audio and voice_ref_text: a
 clip, and what it says, the speaker's own voice falls back on when the host
 sends none. skip_ref_text is read by the host, which then sends no transcript.
 
@@ -44,6 +48,7 @@ download (which resumes on the next request).
 from __future__ import annotations
 
 import errno
+import gc
 import hashlib
 import json
 import logging
@@ -174,7 +179,12 @@ def _env_number(name: str, default: float, low: float, high: float) -> float:
 
 
 def _options() -> dict:
+    model = _env('AUDIO8_MODEL') or voices.REALISTIC
+    if model not in voices.MODEL_LANGUAGES:
+        log.warning('AUDIO8_MODEL=%r is not a model; using %s', model, voices.REALISTIC)
+        model = voices.REALISTIC
     return {
+        'model': model,
         'threads': int(_env_number('AUDIO8_THREADS', 0, 0, 256)),
         'voice_ref_audio': _env('AUDIO8_VOICE_REF_AUDIO'),
         'voice_ref_text': _env('AUDIO8_VOICE_REF_TEXT'),
@@ -273,11 +283,11 @@ def _read_reference(path: str) -> tuple:
 # The model: downloaded and loaded on first use, shared by every request
 # ---------------------------------------------------------------------------
 _pins: dict | None = None
-_loaded = None              # engine.Audio8
-_loaded_threads = None
+_loaded = None              # engine.Audio8, one model at a time
+_loaded_key = None          # (model, threads) of _loaded
 _model_lock = threading.Lock()
 
-DISPLAY = 'Audio8 TTS Preview 0.6B'
+DISPLAY = {voices.REALISTIC: 'Audio8 TTS Realistic 0.6B', voices.PREVIEW: 'Audio8 TTS Preview 0.6B'}
 
 
 def _pin_index() -> dict:
@@ -287,33 +297,36 @@ def _pin_index() -> dict:
     return _pins
 
 
-def pins() -> list[dict]:
-    """The pinned files the model reads, each with its repository and revision."""
+def pins(model: str) -> list[dict]:
+    """The pinned files `model` reads, each with its repository and revision:
+    the files both models share, then its own."""
     return [{**pin, 'key': key, 'repo': entry['repo'], 'revision': entry['revision']}
-            for key, entry in _pin_index().items() for pin in entry['files']]
+            for key, entry in _pin_index().items() if key in ('shared', model)
+            for pin in entry['files']]
 
 
-def model_files() -> dict:
-    """{path in the repository: local path} of every pinned file."""
-    return {pin['path']: download.local_path(pin) for pin in pins()}
+def model_files(model: str) -> dict:
+    """{path in the repository: local path} of every file `model` reads."""
+    return {pin['path']: download.local_path(pin) for pin in pins(model)}
 
 
 def _megabytes(count: int) -> str:
     return f'{count / 1e6:,.0f} MB'
 
 
-def _load(state: '_Request', options: dict):
-    """Download (once) and load. The caller holds _model_lock."""
-    global _loaded, _loaded_threads
+def _load(state: '_Request', model: str, threads: int):
+    """Download (once) and load `model`, unloading the other. The caller
+    holds _model_lock."""
+    global _loaded, _loaded_key
     from audio8_addon import engine  # numpy and onnxruntime: only once a line comes
 
-    threads = options['threads'] or engine.default_threads()
-    if _loaded is not None and _loaded_threads == threads:
+    threads = threads or engine.default_threads()
+    if _loaded is not None and _loaded_key == (model, threads):
         return _loaded
-    todo = download.missing(pins())
+    todo = download.missing(pins(model))
     if todo:
         total = sum(pin['size'] for pin in todo)
-        message = f'Downloading {DISPLAY} ({_megabytes(total)})...'
+        message = f'Downloading {DISPLAY[model]} ({_megabytes(total)})...'
         _emit_progress(state.req_id, 0.0, message)
         last = [0.0]
 
@@ -324,14 +337,15 @@ def _load(state: '_Request', options: dict):
                 _emit_progress(state.req_id, 0.3 * done / max(1, total_bytes), message)
 
         started = time.monotonic()
-        download.ensure(pins(), progress, state.cancel.is_set)
+        download.ensure(pins(model), progress, state.cancel.is_set)
         log.info('downloaded %s in %.1fs', _megabytes(total), time.monotonic() - started)
-    _emit_progress(state.req_id, 0.3, f'Loading {DISPLAY}...')
+    _emit_progress(state.req_id, 0.3, f'Loading {DISPLAY[model]}...')
     started = time.monotonic()
-    _loaded = _loaded_threads = None
-    _loaded = engine.Audio8(model_files(), threads, download.cache_root() / 'voices')
-    _loaded_threads = threads
-    log.info('loaded with %d threads in %.1fs', threads, time.monotonic() - started)
+    _loaded = _loaded_key = None
+    gc.collect()  # the other model's sessions, before this one's come in
+    _loaded = engine.Audio8(model_files(model), threads, download.cache_root() / 'voices')
+    _loaded_key = (model, threads)
+    log.info('loaded %s with %d threads in %.1fs', model, threads, time.monotonic() - started)
     return _loaded
 
 
@@ -398,8 +412,11 @@ def _handle_synthesize(state: _Request, params: dict) -> None:
         from audio8_addon import engine
         if state.cancel.is_set():
             raise engine.Cancelled()
+        chosen = voices.model_for(language, options['model'])
+        if chosen != options['model']:
+            log.info('%s is not a language of %s: this line uses %s', language, options['model'], chosen)
         with _model_lock:
-            model = _load(state, options)
+            model = _load(state, chosen, options['threads'])
             if state.cancel.is_set():
                 raise engine.Cancelled()
             _emit_progress(req_id, 0.32, 'Listening to the reference...')
@@ -411,8 +428,9 @@ def _handle_synthesize(state: _Request, params: dict) -> None:
             def progress(fraction: float) -> None:
                 _emit_progress(req_id, 0.35 + 0.65 * fraction, 'Speaking...')
 
-            log.info('synthesize %s: language=%s seed=%d chars=%d reference=%.1fs transcript=%d chars',
-                     req_id, language, seed, len(text), voice.codes.shape[1] / engine.FRAMES_PER_SECOND,
+            log.info('synthesize %s: model=%s language=%s seed=%d chars=%d reference=%.1fs '
+                     'transcript=%d chars', req_id, chosen, language, seed, len(text),
+                     voice.codes.shape[1] / engine.FRAMES_PER_SECOND,
                      len(voice.transcript))
             started = time.monotonic()
             wav = model.synthesize(text, voice, seed=seed, progress=progress,
@@ -607,14 +625,16 @@ def _self_test() -> int:
     up = dsp.resample(tone, 16000, engine.SAMPLE_RATE)
     # The Qwen pattern is built from the Unicode database the bundle carries.
     words = audio8_text._qwen_pattern().findall("It's 3 o'clock, 你好 Żółć!")
-    ok = (bool(np.allclose(doubled, 2)) and len(pins()) == len(engine.FILES)
+    complete = all(sorted(p['path'] for p in pins(m)) == sorted(engine.FILES)
+                   for m in voices.MODEL_LANGUAGES)
+    ok = (bool(np.allclose(doubled, 2)) and complete
           and abs(len(up) - engine.SAMPLE_RATE) <= 1 and len(words) == 10)
     report = {
         'ok': ok,
         'version': ADDON_VERSION,
         'onnxruntime': ort.__version__,
         'numpy': np.__version__,
-        'pins': len(pins()),
+        'pins': {m: len(pins(m)) for m in voices.MODEL_LANGUAGES},
         'words': len(words),
         'openssl': ssl.OPENSSL_VERSION,
         'sha256': hashlib.sha256(b'').hexdigest()[:8],

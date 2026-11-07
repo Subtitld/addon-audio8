@@ -31,7 +31,7 @@ def _start(tmp_path, **options):
     env['PYTHONPATH'] = str(REPO_ROOT)
     env['SUBTITLD_MODELS_DIR'] = str(tmp_path / 'models')
     env['HF_ENDPOINT'] = 'http://127.0.0.1:9'  # nothing listens: no test reaches the network
-    for key in ('AUDIO8_VOICE_REF_AUDIO', 'AUDIO8_VOICE_REF_TEXT', 'AUDIO8_THREADS'):
+    for key in ('AUDIO8_VOICE_REF_AUDIO', 'AUDIO8_VOICE_REF_TEXT', 'AUDIO8_THREADS', 'AUDIO8_MODEL'):
         env.pop(key, None)
     env.update(options)
     return subprocess.Popen([sys.executable, '-m', 'audio8_addon'], cwd=tmp_path, env=env,
@@ -89,7 +89,7 @@ def test_requests_it_cannot_serve_get_clear_errors(proc, tmp_path):
     _recv(proc)
     _send(proc, {'type': 'ready', 'host': 'subtitld', 'host_version': 'test'})
     ref = {'voice_ref_audio': str(CLIP)}
-    assert _synth(proc, 'a', tmp_path, text='Olá.', language='pt', **ref)['code'] == 'unsupported_language'
+    assert _synth(proc, 'a', tmp_path, text='Ahoj.', language='cs', **ref)['code'] == 'unsupported_language'
     empty = _synth(proc, 'b', tmp_path, text='Hello.', language='', **ref)
     assert empty['code'] == 'unsupported_language' and "project's language" in empty['message']
     assert _synth(proc, 'c', tmp_path, text='Hello.', voice='alba', language='en', **ref)['code'] == 'unsupported_voice'
@@ -121,6 +121,33 @@ def test_the_configured_clip_is_the_fallback(tmp_path):
         _recv(process)
         frame = _synth(process, 'h', tmp_path, text='Hello.', language='en')
         assert frame['code'] == 'network_unavailable'
+    finally:
+        process.kill()
+        process.communicate()
+
+
+@pytest.mark.parametrize('model, language, used', [
+    ('preview-0.6b-int4', 'fr', 'Preview'),
+    ('preview-0.6b-int4', 'pt-BR', 'Realistic'),   # Preview doesn't speak it
+    ('', 'fr', 'Realistic'),                         # the default
+    ('nonsense', 'fr', 'Realistic'),
+])
+def test_each_line_downloads_the_model_it_needs(tmp_path, model, language, used):
+    process = _start(tmp_path, AUDIO8_MODEL=model)
+    try:
+        _recv(process)
+        progress = []
+        _send(process, {'id': 'm', 'type': 'tts.synthesize', 'params': {
+            'text': 'Bonjour.', 'language': language, 'voice_ref_audio': str(CLIP),
+            'output_path': str(tmp_path / 'm.wav')}})
+        while True:
+            frame = _recv(process)
+            if frame['type'] == 'progress':
+                progress.append(frame['message'])
+            elif frame.get('id') == 'm':
+                break
+        assert frame['code'] == 'network_unavailable'
+        assert any(f'Downloading Audio8 TTS {used} 0.6B' in message for message in progress), progress
     finally:
         process.kill()
         process.communicate()
