@@ -9,3 +9,4 @@ dist-*/
 audio8-*.zip*
 audio8-*.tar.gz*
 release-staging/
+release-staging-haiku/
