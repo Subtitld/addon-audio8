@@ -1,7 +1,7 @@
 {
   "manifest_version": 1,
   "id": "audio8",
-  "version": "26.11.2",
+  "version": "26.11.3",
   "display_name": "Audio8 TTS (offline, voice clone, 23 languages)",
   "summary": "Audio8 TTS Realistic 0.6B: speaks 23 languages at 44.1 kHz in the speaker's own voice, cloned from a few seconds of the video, from Arabic, Hindi and Thai to Chinese, Cantonese, Japanese and Korean. The earlier Preview model, in 11 languages, can be picked in Configure. The model (1 GB) downloads on the first line and needs about 3 GB of memory. Slow on a CPU: each second of speech takes about two to three seconds to make.",
   "author": "Subtitld",
